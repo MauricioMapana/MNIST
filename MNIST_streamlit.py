@@ -132,10 +132,11 @@ with interactive:
 
 with datasets:
   st.header('The Training dataset')
-  st.text('This model was trainned with the public dataset MNIST. \n'
-            'Made by Institute of Standars and Technology of USA, it \n'
-            'contains 60,000 examples of handwritten digits for train- \n'
-            'ning, and 10 thousand more for testing.'
+  st.text('This model was trainned with the public data-\n'
+            'set MNIST.Made by Institute of Standars and\n'
+            'Technology of USA. It contains 60 thousand\n'
+            'examples of handwritten digits for trainning\n'
+            'and 10 thousand more for testing.'
           )
   st.subheader('Sample of the digits of MNIST.')
   examples = Image.open('MnistExamples.png')
@@ -143,10 +144,12 @@ with datasets:
   w = 8*(w//10)
   h = 8*(h//10)
   st.image(examples.resize((w,h)))
-  st.text('Taken from the Wikipedia article. Made by Josef Steppan.')
+  st.text('Taken from the Wikipedia article.\n'
+          'Made by Josef Steppan.')
 
 with the_model:
   st.header('Our Model')
-  st.text('The model used is a convolutional neural network having\n'
-          '122,901 parameters. It has a validation accuracy of 99.16%.'
+  st.text('The model used is a convolutional neural\n'
+          'network having 122,901 parameters. It has\n'
+          'a validation accuracy of 99.16%.'
           )
