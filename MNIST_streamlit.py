@@ -65,11 +65,17 @@ class CNN(nn.Module):
         if m.bias is not None:
           nn.init.constant_(m.bias, 0)
 
-device = torch.device('cpu')
-cnn_model = CNN(num_classes = 10)
-cnn_model.to(device)
-cnn_model.load_state_dict(torch.load('MNIST_model.pth', map_location = device))
-cnn_model.eval()
+@st.cache(suppress_st_warning = True)
+def make_model():
+  device = torch.device('cpu')
+  cnn_model = CNN(num_classes = 10)
+  cnn_model.to(device)
+  cnn_model.load_state_dict(torch.load('MNIST_model.pth', map_location = device))
+  cnn_model.eval()
+  return cnn_model
+
+cnn_model = make_model()
+
 
 def preprocessing(img, factor = 1.6, factor2 = 4.5):
   matrix = np.asarray(img)
@@ -95,8 +101,9 @@ def preprocessing(img, factor = 1.6, factor2 = 4.5):
 
  
 header = st.container()
-datasets = st.container()
 interactive = st.container()
+datasets = st.container()
+the_model = st.container()
 
 with header:
     st.title('Digit Classification')
@@ -104,22 +111,42 @@ with header:
 
 with interactive:
     st.header('Digit Classifier')
-    st.text('Draw a digit in the canvas below. The model will try to determine'
-            ' what number you\ndrew.'
-        )
+    st.text('Draw a digit in the canvas below. \n'
+            'Press submit when ready.'
+            )
     img_input = st_canvas(width = 300, height = 300,
                           fill_color ="rgba(255, 0, 0, 1)")
+    switch = st.button('Submit.')
     matrix = img_input.image_data[:,:,3]
     values = len(list(set(list(matrix.reshape(-1)))))
-    if values > 1:
+    if values > 1 and switch:
       num_image = Image.fromarray(np.uint8(matrix))
       num_image = preprocessing(num_image)
       num_image = num_image.resize((28,28))
       Input = torch.from_numpy(np.asarray(num_image).reshape(1,1,28,28)).float()
       Outcome = cnn_model(Input)
       _, pred = torch.max(Outcome, 1)
-      st.text(f'Prediction of the model: {pred.item()}')
-    
+      st.subheader(f'Model result: {pred.item()}')
+    else:
+      st.subheader('Model result: None.')
 
-st.write()
-    
+with datasets:
+  st.header('The Training dataset')
+  st.text('This model was trainned with the public dataset MNIST. \n'
+            'Made by Institute of Standars and Technology of USA, it \n'
+            'contains 60,000 examples of handwritten digits for train- \n'
+            'ning, and 10 thousand more for testing.'
+          )
+  st.subheader('Sample of the digits of MNIST.')
+  examples = Image.open('MnistExamples.png')
+  w, h = examples.size
+  w = 8*(w//10)
+  h = 8*(h//10)
+  st.image(examples.resize((w,h)))
+  st.text('Taken from the Wikipedia article. Made by Josef Steppan.')
+
+with the_model:
+  st.header('Our Model')
+  st.text('The model used is a convolutional neural network having\n'
+          '122,901 parameters. It has a validation accuracy of 99.16%.'
+          )
