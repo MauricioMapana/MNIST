@@ -1,0 +1,125 @@
+# This code is to make the streamlit app.
+
+import os
+
+path = 'polygonus/MathMax/MNIST'
+cwd = os.getcwd()
+
+
+import numpy as np
+import streamlit as st
+from streamlit_drawable_canvas import st_canvas
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter
+from IPython.display import display
+
+
+# First lets construct the models.
+
+class CNN(nn.Module):
+  def __init__(self, num_classes):
+    super(CNN, self).__init__()
+    # Initial image size is 28x28.
+    # Cambio 3. Agregar tres capas de convoluciones con padding. 
+    self.conv1 = nn.Conv2d(1, 16, 3, padding = 'same')  
+    self.conv1_1 = nn.Conv2d(16,16,3, padding = 'same')
+    self.conv1_2 = nn.Conv2d(16,16,3, padding = 'same')
+    self.padd1 = nn.MaxPool2d(kernel_size = 2) # Size changed to 14 x 14.
+    self.conv2 = nn.Conv2d(16,32,3, padding = 'same') 
+    self.conv2_1 = nn.Conv2d(32,32,3, padding = 'same')
+    self.conv2_2 = nn.Conv2d(32,32,3, padding = 'same')
+    self.padd2 = nn.MaxPool2d(kernel_size = 2) # Size changed to 7 x 7.
+    self.conv3 = nn.Conv2d(32,64,3, padding = 'same') 
+    self.conv3_1 = nn.Conv2d(64,64,3, padding = 'same')
+    self.conv3_2 = nn.Conv2d(64,64,3, padding = 'same')
+    self.conv4 = nn.Conv2d(64,32,1)
+    self.conv5 = nn.Conv2d(32,1,1) # Size unchanged.  
+    self.lin1 = nn.Linear(7**2, num_classes)
+    self.initialize_weights()
+
+  def forward(self, x):
+    # Softmax not applied since it will be applied later on the loss function. 
+    out = F.relu(self.conv1(x))
+    out = F.relu(self.conv1_1(out))
+    out = F.relu(self.conv1_2(out))
+    out = self.padd1(out)
+    out = F.relu(self.conv2(out))
+    out = F.relu(self.conv2_1(out))
+    out = F.relu(self.conv2_2(out))
+    out = self.padd1(out)
+    out = F.relu(self.conv3(out))
+    out = F.relu(self.conv3_1(out))
+    out = F.relu(self.conv3_2(out))
+    out = F.relu(self.conv4(out))
+    out = F.relu(self.conv5(out))
+    out = out.view(-1,7**2)
+    return self.lin1(out)
+
+  def initialize_weights(self):
+    for m in self.modules():
+      if isinstance(m, nn.Conv2d):
+        nn.init.kaiming_uniform_(m.weight)
+
+        if m.bias is not None:
+          nn.init.constant_(m.bias, 0)
+
+device = torch.device('cpu')
+cnn_model = CNN(num_classes = 10)
+cnn_model.to(device)
+cnn_model.load_state_dict(torch.load('MNIST_model.pth', map_location = device))
+cnn_model.eval()
+
+def preprocessing(img, factor = 1.6, factor2 = 4.5):
+  matrix = np.asarray(img)
+  mu = np.mean(matrix)
+  delta = np.std(matrix)
+  lim_inf = mu - factor*delta
+  lim_sup = mu + factor*delta
+  mask = np.where((matrix < lim_inf)|(lim_sup < matrix), matrix, 0)
+  rows, cols = np.where(mask > 0)
+  row_mu = np.mean(rows)
+  row_delta = np.std(rows)
+  inf_row = max(0,int(row_mu - factor2*row_delta))
+  sup_row = min(mask.shape[0]-1,int(row_mu + factor2*row_delta))
+  col_mu = np.mean(cols)
+  col_delta = np.mean(delta)
+  inf_col = max(0,int(col_mu - factor2*col_delta))
+  sup_col = min(mask.shape[1]-1,int(col_mu + factor2*col_delta))
+  mask = mask[inf_row:sup_row,inf_col:sup_col]
+  return Image.fromarray(mask)
+
+# defining the sections of the website. 
+
+
+ 
+header = st.container()
+datasets = st.container()
+interactive = st.container()
+
+with header:
+    st.title('Digit Classification')
+    st.text('Built using MNIST dataset.')
+
+with interactive:
+    st.header('Digit Classifier')
+    st.text('Draw a digit in the canvas below. The model will try to determine'
+            ' what number you\ndrew.'
+        )
+    img_input = st_canvas(width = 300, height = 300,
+                          fill_color ="rgba(255, 0, 0, 1)")
+    matrix = img_input.image_data[:,:,3]
+    values = len(list(set(list(matrix.reshape(-1)))))
+    if values > 1:
+      num_image = Image.fromarray(np.uint8(matrix))
+      num_image = preprocessing(num_image)
+      num_image = num_image.resize((28,28))
+      Input = torch.from_numpy(np.asarray(num_image).reshape(1,1,28,28)).float()
+      Outcome = cnn_model(Input)
+      _, pred = torch.max(Outcome, 1)
+      st.text(f'Prediction of the model: {pred.item()}')
+    
+
+st.write()
+    
